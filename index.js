@@ -10,7 +10,7 @@ app.use(
   cors({
     credentials: true,
     crossDomain: true,
-    origin: ["https://aws-ac1fd.web.app/" || "http://localhost:3000"],
+    origin: ["https://aws-ac1fd.web.app", "http://localhost:3000"],
   })
 );
 app.use(express.json());
