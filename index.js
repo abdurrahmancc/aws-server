@@ -48,6 +48,11 @@ const run = async () => {
     // const imgCollection = client.db("professional-aws").collection("images");
     const productsCollection = client.db("professional-aws").collection("products");
 
+    app.get("/counter", async (req, res) => {
+      const count = await productsCollection.estimatedDocumentCount();
+      res.send({ count });
+    });
+
     app.get("/user", verifyJWT, async (req, res) => {
       const decodedEmail = req.decoded.email;
       console.log(decodedEmail);
@@ -56,11 +61,47 @@ const run = async () => {
       res.send(result);
     });
 
-    app.get("/all-products", async (req, res) => {
-      const query = {};
-      const result = await productsCollection.find(query).toArray();
-      res.send(result);
+    app.post("/all-products", async (req, res) => {
+      const category = req.body;
+      // console.log(info);
+      const page = parseInt(req.query.page);
+      const count = parseInt(req.query.size);
+      let query;
+      if (category.length) {
+        query = { category: { $in: category } };
+      } else {
+        query = {};
+      }
+      const result = productsCollection.find(query);
+      // console.log(result);
+      let products;
+      if (page || count) {
+        products = await result
+          .skip(page * count)
+          .limit(count)
+          .toArray();
+      } else {
+        products = await result.toArray();
+      }
+      res.send(products);
     });
+
+    /*     app.get("/all-products", async (req, res) => {
+      const page = parseInt(req.query.page);
+      const count = parseInt(req.query.size);
+      const query = {};
+      const result = productsCollection.find(query);
+      let products;
+      if (page || count) {
+        products = await result
+          .skip(page * count)
+          .limit(count)
+          .toArray();
+      } else {
+        products = await result.toArray();
+      }
+      res.send(products);
+    }); */
 
     app.get("/product-details/:id", async (req, res) => {
       const id = req.params.id;
