@@ -144,6 +144,14 @@ const run = async () => {
       res.send(result);
     });
 
+    // home-phone
+    app.get("/home-phone/:category", async (req, res) => {
+      const category = req.params.category;
+      const query = { category: category };
+      const result = await productsCollection.find(query).toArray();
+      res.send(result);
+    });
+
     app.post("/add-product", verifyJWT, async (req, res) => {
       const info = req.body;
       const result = await productsCollection.insertOne(info);
