@@ -61,6 +61,7 @@ const run = async () => {
       res.send(result);
     });
 
+    // shop all-products
     app.post("/all-products", async (req, res) => {
       const category = req.body;
       // console.log(info);
@@ -86,10 +87,11 @@ const run = async () => {
       res.send(products);
     });
 
-    /*     app.get("/all-products", async (req, res) => {
+    app.get("/categories/:category", async (req, res) => {
+      const category = req.params.category;
       const page = parseInt(req.query.page);
       const count = parseInt(req.query.size);
-      const query = {};
+      let query = { category: category };
       const result = productsCollection.find(query);
       let products;
       if (page || count) {
@@ -101,12 +103,44 @@ const run = async () => {
         products = await result.toArray();
       }
       res.send(products);
-    }); */
+    });
 
+    // /product-details
     app.get("/product-details/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
       const result = await productsCollection.findOne(query);
+      res.send(result);
+    });
+
+    app.get("/home-LCM/:category", async (req, res) => {
+      const category = req.params.category;
+      const query = { category: category };
+      const result = await productsCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // home-bestProducts
+    app.get("/home-bestProducts/:category", async (req, res) => {
+      const category = req.params.category;
+      const query = { category: category };
+      const result = await productsCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // home-electronic
+    app.get("/home-electronic/:category", async (req, res) => {
+      const category = req.params.category;
+      const query = { category: category };
+      const result = await productsCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // home-electronic
+    app.get("/home-watch/:category", async (req, res) => {
+      const category = req.params.category;
+      const query = { category: category };
+      const result = await productsCollection.find(query).toArray();
       res.send(result);
     });
 
@@ -119,7 +153,6 @@ const run = async () => {
     //product-delete
     app.delete("/product-delete/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
-      console.log(id);
       const query = { _id: ObjectId(id) };
       const result = await productsCollection.deleteOne(query);
       res.send(result);
