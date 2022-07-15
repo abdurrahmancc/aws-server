@@ -45,11 +45,16 @@ const run = async () => {
   try {
     await client.connect();
     const usersCollection = client.db("professional-aws").collection("users");
-    // const imgCollection = client.db("professional-aws").collection("images");
+    const blogsCollection = client.db("professional-aws").collection("blogs");
     const productsCollection = client.db("professional-aws").collection("products");
 
     app.get("/counter", async (req, res) => {
       const count = await productsCollection.estimatedDocumentCount();
+      res.send({ count });
+    });
+
+    app.get("/blog-counter", async (req, res) => {
+      const count = await blogsCollection.estimatedDocumentCount();
       res.send({ count });
     });
 
@@ -156,6 +161,48 @@ const run = async () => {
       const info = req.body;
       const result = await productsCollection.insertOne(info);
       res.send(result);
+    });
+
+    // blogs Collection
+    app.post("/addBlog", verifyJWT, async (req, res) => {
+      const info = req.body;
+      const result = await blogsCollection.insertOne(info);
+      res.send(result);
+    });
+
+    // blogs
+    app.get("/blogs", async (req, res) => {
+      const page = parseInt(req.query.page);
+      const count = parseInt(req.query.size);
+      const result = await blogsCollection.find({});
+      let items;
+      if (page || count) {
+        items = await result
+          .skip(page * count)
+          .limit(count)
+          .toArray();
+      } else {
+        items = await result.toArray();
+      }
+      res.send(items);
+    });
+
+    app.get("/categories/:category", async (req, res) => {
+      const category = req.params.category;
+      const page = parseInt(req.query.page);
+      const count = parseInt(req.query.size);
+      let query = { category: category };
+      const result = productsCollection.find(query);
+      let products;
+      if (page || count) {
+        products = await result
+          .skip(page * count)
+          .limit(count)
+          .toArray();
+      } else {
+        products = await result.toArray();
+      }
+      res.send(products);
     });
 
     //product-delete
