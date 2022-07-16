@@ -60,7 +60,7 @@ const run = async () => {
 
     app.get("/user", verifyJWT, async (req, res) => {
       const decodedEmail = req.decoded.email;
-      console.log(decodedEmail);
+      // console.log(decodedEmail);
       const query = {};
       const result = await usersCollection.find(query).toArray();
       res.send(result);
@@ -167,6 +167,14 @@ const run = async () => {
     app.post("/addBlog", verifyJWT, async (req, res) => {
       const info = req.body;
       const result = await blogsCollection.insertOne(info);
+      res.send(result);
+    });
+
+    // blogs details
+    app.get("/blog-details/:id", verifyJWT, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const result = await blogsCollection.findOne(query);
       res.send(result);
     });
 
