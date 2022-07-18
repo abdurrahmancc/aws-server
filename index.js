@@ -92,6 +92,15 @@ const run = async () => {
       res.send(products);
     });
 
+    // useProducts
+    app.post("/cart-products", async (req, res) => {
+      const keys = req.body;
+      const ids = keys.map((id) => ObjectId(id));
+      let query = { _id: { $in: ids } };
+      const result = await productsCollection.find(query).toArray();
+      res.send(result);
+    });
+
     app.get("/categories/:category", async (req, res) => {
       const category = req.params.category;
       const page = parseInt(req.query.page);
