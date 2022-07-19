@@ -58,11 +58,59 @@ const run = async () => {
       res.send({ count });
     });
 
-    app.get("/user", verifyJWT, async (req, res) => {
+    app.get("/users", verifyJWT, async (req, res) => {
       const decodedEmail = req.decoded.email;
-      // console.log(decodedEmail);
       const query = {};
       const result = await usersCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // /all admin
+    app.get("/admin", verifyJWT, async (req, res) => {
+      const query = { role: "admin" };
+      const result = await usersCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // check admin
+    app.get("/is-admin/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await usersCollection.findOne(query);
+      const isAdmin = result.role === "admin";
+      res.send({ admin: isAdmin });
+    });
+
+    // check is-notUser
+    app.get("/is-notUser/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await usersCollection.findOne(query);
+      const isNotUser = result.role !== "user";
+      res.send({ isUser: isNotUser });
+    });
+
+    app.delete("/deleteUser/:id", verifyJWT, async (req, res) => {
+      const email = req.decoded.email;
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const requester = await usersCollection.findOne({ email: email });
+      if (requester.role === "admin") {
+        const result = await usersCollection.deleteOne(query);
+        res.send(result);
+      } else {
+        res.status(403).send({ message: "forbidden access" });
+      }
+    });
+
+    app.post("/makeRole/:id", async (req, res) => {
+      const id = req.params.id;
+      const role = req.body;
+      filter = { _id: ObjectId(id) };
+      const updateDoc = {
+        $set: role,
+      };
+      const result = await usersCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
 
