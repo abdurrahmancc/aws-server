@@ -172,11 +172,11 @@ const run = async () => {
     });
 
     // check is-notUser
-    app.get("/is-notUser/:email", verifyJWT, async (req, res) => {
+    app.get("/is-notUser/:email", verifyJWT, verifyModerator, async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const result = await usersCollection.findOne(query);
-      const isNotUser = result?.role !== "user";
+      const isNotUser = result?.role === "moderator" || result?.role === "admin";
       res.send({ isUser: isNotUser });
     });
 
@@ -392,7 +392,7 @@ const run = async () => {
           email: info.email,
           displayName: info.displayName,
           photoURL: info.photoURL,
-          lastLoginDate: info.joiningDate,
+          lastLoginDate: info.lastLoginDate,
         };
         const updateDoc = {
           $set: infoData,
