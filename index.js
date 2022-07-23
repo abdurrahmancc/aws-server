@@ -47,6 +47,94 @@ const run = async () => {
     const usersCollection = client.db("professional-aws").collection("users");
     const blogsCollection = client.db("professional-aws").collection("blogs");
     const productsCollection = client.db("professional-aws").collection("products");
+    const ordersCollection = client.db("professional-aws").collection("orders");
+
+    // verify Admin
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const requester = await usersCollection.findOne({ email: email });
+      if (requester.role === "admin") {
+        next();
+      } else {
+        res.status(403).send({ message: "forbidden access" });
+      }
+    };
+
+    // verify Moderator
+    const verifyModerator = async (req, res, next) => {
+      const email = req.decoded.email;
+      const requester = await usersCollection.findOne({ email: email });
+      if (requester.role === "moderator" || requester.role === "admin") {
+        next();
+      } else {
+        res.status(403).send({ message: "forbidden access" });
+      }
+    };
+
+    // order
+    app.post("/order", async (req, res) => {
+      const info = req.body;
+      const result = await ordersCollection.insertOne(info);
+      res.send(result);
+    });
+
+    // user order
+    app.get("/userOrder/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { userEmail: email };
+      const result = await ordersCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // all Orders
+    app.get("/allOrders", verifyJWT, verifyModerator, async (req, res) => {
+      const result = await ordersCollection.find({}).toArray();
+      res.send(result);
+    });
+
+    app.post("/allOrders", verifyJWT, verifyModerator, async (req, res) => {
+      const page = parseInt(req.query.page);
+      const count = parseInt(req.query.size);
+      let query = {};
+      const result = ordersCollection.find(query);
+      let orders;
+      if (page || count) {
+        orders = await result
+          .skip(page * count)
+          .limit(count)
+          .toArray();
+      } else {
+        orders = await result.toArray();
+      }
+      res.send(orders);
+    });
+
+    app.get("/searchOrder/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const result = await ordersCollection.findOne(query);
+      res.send(result);
+    });
+
+    // orders Counter
+    app.get("/ordersCounter", async (req, res) => {
+      const count = await ordersCollection.estimatedDocumentCount();
+      res.send({ count });
+    });
+
+    // delete order
+    app.delete("/deleteOrder/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const email = req.decoded.email;
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const requester = await usersCollection.findOne({ email: email });
+      if (requester?.role === "admin") {
+        const result = await ordersCollection.deleteOne(query);
+        res.send(result);
+      } else {
+        res.status(403).send({ message: "forbidden access" });
+      }
+    });
 
     app.get("/counter", async (req, res) => {
       const count = await productsCollection.estimatedDocumentCount();
@@ -58,7 +146,7 @@ const run = async () => {
       res.send({ count });
     });
 
-    app.get("/users", verifyJWT, async (req, res) => {
+    app.get("/users", verifyJWT, verifyModerator, async (req, res) => {
       const decodedEmail = req.decoded.email;
       const query = {};
       const result = await usersCollection.find(query).toArray();
@@ -66,18 +154,18 @@ const run = async () => {
     });
 
     // /all admin
-    app.get("/admin", verifyJWT, async (req, res) => {
+    app.get("/admin", verifyJWT, verifyAdmin, async (req, res) => {
       const query = { role: "admin" };
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });
 
     // check admin
-    app.get("/is-admin/:email", verifyJWT, async (req, res) => {
+    app.get("/is-admin/:email", verifyJWT, verifyModerator, async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const result = await usersCollection.findOne(query);
-      const isAdmin = result.role === "admin";
+      const isAdmin = result?.role === "admin";
       res.send({ admin: isAdmin });
     });
 
@@ -86,7 +174,7 @@ const run = async () => {
       const email = req.params.email;
       const query = { email: email };
       const result = await usersCollection.findOne(query);
-      const isNotUser = result.role !== "user";
+      const isNotUser = result?.role !== "user";
       res.send({ isUser: isNotUser });
     });
 
@@ -95,7 +183,7 @@ const run = async () => {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
       const requester = await usersCollection.findOne({ email: email });
-      if (requester.role === "admin") {
+      if (requester?.role === "admin") {
         const result = await usersCollection.deleteOne(query);
         res.send(result);
       } else {
@@ -103,7 +191,8 @@ const run = async () => {
       }
     });
 
-    app.post("/makeRole/:id", async (req, res) => {
+    // make Role
+    app.post("/makeRole/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const role = req.body;
       filter = { _id: ObjectId(id) };
@@ -145,7 +234,11 @@ const run = async () => {
       const keys = req.body;
       const ids = keys.map((id) => ObjectId(id));
       let query = { _id: { $in: ids } };
-      const result = await productsCollection.find(query).toArray();
+      const cursor = productsCollection
+        .find(query)
+        .project({ productName: 1, quantity: 1, price: 1, images: 1 });
+      const result = await cursor.toArray();
+
       res.send(result);
     });
 
@@ -278,17 +371,34 @@ const run = async () => {
       res.send(result);
     });
 
+    // token and user create
     app.put("/user/:email", async (req, res) => {
       const user = req.params.email;
-      const info = req.body;
-      filter = { email: user };
+      let info = req.body;
+      const exist = await usersCollection.findOne({ email: user });
+      let filter = { email: user };
       const options = { upsert: true };
-      const updateDoc = {
-        $set: info,
-      };
-      const result = await usersCollection.updateOne(filter, updateDoc, options);
-      const token = jwt.sign({ email: user }, process.env.ACCESS_TOKEN, { expiresIn: "1d" });
-      res.send({ result, token });
+      if (!exist) {
+        const updateDoc = {
+          $set: info,
+        };
+        const result = await usersCollection.updateOne(filter, updateDoc, options);
+        const token = jwt.sign({ email: user }, process.env.ACCESS_TOKEN, { expiresIn: "1d" });
+        res.send({ result, token });
+      } else {
+        let infoData = {
+          email: info.email,
+          displayName: info.displayName,
+          photoURL: info.photoURL,
+          lastLoginDate: info.joiningDate,
+        };
+        const updateDoc = {
+          $set: infoData,
+        };
+        const result = await usersCollection.updateOne(filter, updateDoc, options);
+        const token = jwt.sign({ email: user }, process.env.ACCESS_TOKEN, { expiresIn: "1d" });
+        res.send({ result, token });
+      }
     });
   } finally {
     // client.close()
