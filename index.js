@@ -180,6 +180,7 @@ const run = async () => {
       res.send({ isUser: isNotUser });
     });
 
+    // delete User
     app.delete("/deleteUser/:id", verifyJWT, async (req, res) => {
       const email = req.decoded.email;
       const id = req.params.id;
