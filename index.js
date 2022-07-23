@@ -92,6 +92,7 @@ const run = async () => {
       res.send(result);
     });
 
+    // allOrders
     app.post("/allOrders", verifyJWT, verifyModerator, async (req, res) => {
       const page = parseInt(req.query.page);
       const count = parseInt(req.query.size);
