@@ -6,6 +6,8 @@ require("dotenv").config();
 var jwt = require("jsonwebtoken");
 const port = process.env.PORT || 5000;
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const nodemailer = require("nodemailer");
+const sgTransport = require("nodemailer-sendgrid-transport");
 
 app.use(
   cors({
@@ -42,6 +44,74 @@ const verifyJWT = (req, res, next) => {
   });
 };
 
+var emailSenderOptions = {
+  auth: {
+    api_key: process.env.EMAIL_SENDER_KEY,
+  },
+};
+var gmailClient = nodemailer.createTransport(sgTransport(emailSenderOptions));
+
+const sendOrderEmail = (order) => {
+  const { userEmail, orderInfo, totalPrice, firstName, formattedDate } = order;
+  const email = {
+    from: process.env.EMAIL,
+    to: userEmail,
+    subject: "your order is confirm",
+    text: "your order is confirm",
+    html: `
+    <div>
+      <p>Hello ${firstName},</p>
+      <h2>Your order is confirm</h2>
+      <p>you have ordered:</p>
+      <ul>
+        ${orderInfo.map((item) => `<li>${item?.productName}</li>`)}
+     </ul>
+     <p>Total Price: ${totalPrice}</p>
+     <h4>Best Regards</h4>
+     <p><a href="https://aws-ac1fd.firebaseapp.com">aws</a> spread Team</p>
+    </div>
+    `,
+  };
+  gmailClient.sendMail(email, function (err, info) {
+    if (err) {
+      console.log(err);
+    } else {
+      console.log("payment Message sent ", info.message);
+    }
+  });
+};
+const sendOrderConfirmEmail = (order) => {
+  const { userEmail, orderInfo, totalPrice, firstName, transactionId } = order;
+  const productName = orderInfo.map((item) => item?.productName);
+  const email = {
+    from: process.env.EMAIL,
+    to: userEmail,
+    subject: "your payment is Completed",
+    text: "your payment is Completed",
+    html: `
+    <div>
+      <p>Hello ${firstName},</p>
+      <h2>your payment is Completed</h2>
+      <p>you have ordered:</p>
+      <ul>
+      ${orderInfo.map((item) => `<li>${item?.productName}</li>`)}
+     </ul>
+     <p>You paid the total amount: ${totalPrice}</p>
+     <span>your transaction Id: ${transactionId}</span>
+     <h4>Best Regards</h4>
+     <p><a href="https://aws-ac1fd.firebaseapp.com">aws</a> spread Team</p>
+    </div>
+    `,
+  };
+  gmailClient.sendMail(email, function (err, info) {
+    if (err) {
+      console.log(err);
+    } else {
+      console.log("Message sent ", info.message);
+    }
+  });
+};
+
 const run = async () => {
   try {
     await client.connect();
@@ -49,6 +119,7 @@ const run = async () => {
     const blogsCollection = client.db("professional-aws").collection("blogs");
     const productsCollection = client.db("professional-aws").collection("products");
     const ordersCollection = client.db("professional-aws").collection("orders");
+    const paymentsCollection = client.db("professional-aws").collection("payments");
 
     // verify Admin
     const verifyAdmin = async (req, res, next) => {
@@ -72,6 +143,37 @@ const run = async () => {
       }
     };
 
+    // get all paid
+    app.get("/allPayments", verifyJWT, verifyModerator, async (req, res) => {
+      const result = await paymentsCollection.find({}).toArray();
+      res.send(result);
+    });
+
+    // delete Paid Order
+    app.delete("/deletePaidOrder/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { transactionId: id };
+      const result = await paymentsCollection.deleteOne(query);
+      const orderDelete = await ordersCollection.deleteOne(query);
+      res.send({ result, orderDelete });
+    });
+
+    // delete Paid Order
+    app.patch("/paymentOrder/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const info = req.body;
+      const filter = { transactionId: id };
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: {
+          status: info.status,
+        },
+      };
+      const result = await paymentsCollection.updateOne(filter, updateDoc, options);
+      const updateOrder = await ordersCollection.updateOne(filter, updateDoc, options);
+      res.send({ result, updateOrder });
+    });
+
     // payment
     app.post("/create-payment-intent", verifyJWT, async (req, res) => {
       const payment = req.body;
@@ -84,15 +186,38 @@ const run = async () => {
       res.send({ clientSecret: paymentIntent.client_secret });
     });
 
+    // order and paid
+    app.patch("/order/:id", async (req, res) => {
+      const id = req.params.id;
+      const payment = req.body;
+      const filter = { _id: ObjectId(id) };
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: {
+          paid: true,
+          transactionId: payment.transactionId,
+          paidDate: payment.paidDate,
+          userName: payment.userName,
+          totalPaid: payment.totalPaid,
+        },
+      };
+      const result = await paymentsCollection.insertOne(payment);
+      const updateOrder = await ordersCollection.updateOne(filter, updateDoc, options);
+      const order = await ordersCollection.findOne(filter);
+      sendOrderConfirmEmail(order);
+      res.send({ result, updateOrder });
+    });
+
     // order
-    app.post("/order", async (req, res) => {
+    app.post("/order", verifyJWT, async (req, res) => {
       const info = req.body;
       const result = await ordersCollection.insertOne(info);
+      sendOrderEmail(info);
       res.send(result);
     });
 
     // order
-    app.get("/order/:id", async (req, res) => {
+    app.get("/order/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
       const result = await ordersCollection.findOne(query);
@@ -100,7 +225,7 @@ const run = async () => {
     });
 
     // user order
-    app.get("/userOrder/:email", async (req, res) => {
+    app.get("/userOrder/:email", verifyJWT, async (req, res) => {
       const email = req.params.email;
       const query = { userEmail: email };
       const result = await ordersCollection.find(query).toArray();
