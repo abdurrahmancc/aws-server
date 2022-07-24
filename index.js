@@ -431,7 +431,7 @@ const run = async () => {
 run().catch(console.dir);
 
 app.get("/", (req, res) => {
-  res.send("running profession-aws");
+  res.send("running professional-aws");
 });
 
 app.listen(port, () => {
