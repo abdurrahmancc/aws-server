@@ -148,6 +148,52 @@ const run = async () => {
       const result = await paymentsCollection.find({}).toArray();
       res.send(result);
     });
+    // profile Details
+    app.get("/profileDetails/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      const filter = { email: email };
+      const result = await usersCollection.findOne(filter);
+      res.send(result);
+    });
+
+    //update user name
+    app.put("/updateUserName/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      const displayName = req.body;
+      const filter = { email: email };
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: displayName,
+      };
+      const result = await usersCollection.updateOne(filter, updateDoc, options);
+      res.send(result);
+    });
+
+    //update user phone number
+    app.put("/updateUserNumber/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      const phoneNumber = req.body;
+      const filter = { email: email };
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: phoneNumber,
+      };
+      const result = await usersCollection.updateOne(filter, updateDoc, options);
+      res.send(result);
+    });
+
+    //update user photo URL
+    app.put("/updateUserImage/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      const photoURL = req.body;
+      const filter = { email: email };
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: photoURL,
+      };
+      const result = await usersCollection.updateOne(filter, updateDoc, options);
+      res.send(result);
+    });
 
     // delete Paid Order
     app.delete("/deletePaidOrder/:id", verifyJWT, verifyAdmin, async (req, res) => {
