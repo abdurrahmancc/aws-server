@@ -195,6 +195,32 @@ const run = async () => {
       res.send(result);
     });
 
+    //update permanent Address
+    app.patch("/permanentAddress/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      const info = req.body;
+      const filter = { email: email };
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: info,
+      };
+      const result = await usersCollection.updateOne(filter, updateDoc, options);
+      res.send(result);
+    });
+
+    // update permanent Address
+    app.patch("/presentAddress/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      const info = req.body;
+      const filter = { email: email };
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: info,
+      };
+      const result = await usersCollection.updateOne(filter, updateDoc, options);
+      res.send(result);
+    });
+
     // delete Paid Order
     app.delete("/deletePaidOrder/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
