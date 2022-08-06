@@ -566,6 +566,7 @@ const run = async () => {
       res.send(items);
     });
 
+    // get categories
     app.get("/categories/:category", async (req, res) => {
       const category = req.params.category;
       const page = parseInt(req.query.page);
