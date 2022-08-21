@@ -16,7 +16,10 @@ app.use(
     origin: [
       "https://aws-ac1fd.web.app",
       "http://localhost:3000",
+      "http://localhost:3001",
       "https://aws-ac1fd.firebaseapp.com",
+      "https://fresh-a3f88.web.app",
+      "https://fresh-a3f88.firebaseapp.com",
     ],
   })
 );
