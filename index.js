@@ -32,6 +32,7 @@ const client = new MongoClient(uri, {
   serverApi: ServerApiVersion.v1,
 });
 
+// verifyJWT start
 const verifyJWT = (req, res, next) => {
   const authHeader = req?.headers?.authorization;
   if (!authHeader) {
@@ -46,6 +47,7 @@ const verifyJWT = (req, res, next) => {
     next();
   });
 };
+// verifyJWT end
 
 var emailSenderOptions = {
   auth: {
@@ -545,7 +547,7 @@ const run = async () => {
     });
 
     // blogs details
-    app.get("/blog-details/:id", verifyJWT, async (req, res) => {
+    app.get("/blog-details/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
       const result = await blogsCollection.findOne(query);
